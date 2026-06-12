@@ -8,7 +8,7 @@ tools in this suite audit what already exists; this one shifts the same checks l
 
 Pure standard library — **no AWS calls and no third-party dependencies** — so it runs anywhere.
 
-## Cert domain
+## Domain
 IaC + Security.
 
 ## Usage

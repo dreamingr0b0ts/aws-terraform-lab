@@ -6,8 +6,8 @@ Read-only cost analyzer. For every running instance it pulls `CPUUtilization` ov
 window, flags the ones running well under capacity, and recommends a smaller same-family type
 and/or a Graviton (ARM) equivalent — with an estimated monthly on-demand saving.
 
-## Cert domain
-Cost optimization (SAA-C03).
+## Domain
+Cost optimization
 
 ## Usage
 ```bash

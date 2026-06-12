@@ -6,8 +6,8 @@ Read-only cost + resilience analyzer. Idle volumes bill silently, unencrypted vo
 data-at-rest risk, and old/orphaned snapshots pile up cost and clutter. This tool surfaces all
 four and emits a copy-paste cleanup command for each (it never deletes anything itself).
 
-## Cert domain
-Cost optimization + resilience (SAA).
+## Domain
+Cost optimization + resilience
 
 ## Usage
 ```bash

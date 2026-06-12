@@ -7,8 +7,8 @@ ports, all-traffic-open rules, and security groups that nothing uses. It maps ea
 usage (via `describe_network_interfaces`) and also treats an SG as "in use" if another SG
 references it, so cross-SG references aren't false-flagged as orphans.
 
-## Cert domain
-Security (SCS), with SysOps (SOA) overlap.
+## Domain
+Security
 
 ## Usage
 ```bash

@@ -13,8 +13,8 @@ world inbound on a port  →  the NACL allows that port inbound AND allows the
 ephemeral return traffic outbound
 ```
 
-## Cert domain
-Security + Networking (SCS / Advanced Networking).
+## Domain
+Security + Networking
 
 ## Usage
 ```bash

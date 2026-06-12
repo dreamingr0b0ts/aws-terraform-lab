@@ -8,8 +8,8 @@ with a plain GET — no session token. An SSRF bug in an app then becomes creden
 read-only tool flags live instances whose metadata service still accepts v1 and scores each by
 blast radius.
 
-## Cert domain
-Security (SCS) / SysOps (SOA).
+## Domain
+Security
 
 ## Usage
 ```bash

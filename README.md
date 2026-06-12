@@ -1,8 +1,11 @@
 # AWS Terraform Lab + EC2 Toolkit
 
-A Terraform-provisioned EC2 environment plus a suite of standalone analyzers that audit it —
-built as hands-on study for the **Solutions Architect Associate (SAA-C03)**, **SysOps
-Administrator (SOA-C02)**, and **Security Specialty (SCS)** certifications.
+A Terraform-provisioned, intentionally-imperfect EC2 environment plus a suite of seven standalone,
+read-only analyzers that audit it. The lab seeds real misconfigurations — a security group open to
+the world, an unencrypted volume, an IMDSv1 instance, a single-AZ Auto Scaling Group, an oversized
+instance — and each analyzer detects, severity-scores, and explains them, emitting remediation
+rather than mutating anything. Two halves that reinforce each other: the IaC you provision and the
+tooling that keeps it secure, resilient, and cost-efficient.
 
 > **Status: ALL TOOLS IMPLEMENTED.** The Terraform lab is fully built and `terraform validate`-clean
 > (network + compute + alb modules, with the intentional findings seeded and clearly labeled). All
@@ -33,13 +36,13 @@ Two halves that reinforce each other:
 
 All seven are implemented, each with fake-boto3 unit tests and a filled-out README.
 
-| Tool | What it does | Primary cert domain | Status |
-|------|--------------|---------------------|:--:|
+| Tool | What it does | Domain | Status |
+|------|--------------|--------|:--:|
 | [**sg-auditor**](sg-auditor/) | Flags `0.0.0.0/0` on sensitive ports (22/3389/db), unused SGs, redundant/over-broad rules; maps SG → ENI usage | Security | ✅ |
-| [**imds-inspector**](imds-inspector/) | Finds instances allowing IMDSv1 (token-optional) — the SSRF vector — and emits remediation | Security (SOA/SCS) | ✅ |
-| [**right-sizer**](right-sizer/) | CloudWatch utilization → over-provisioned instances; recommends smaller types / Graviton; estimates savings | Cost (SAA) | ✅ |
+| [**imds-inspector**](imds-inspector/) | Finds instances allowing IMDSv1 (token-optional) — the SSRF vector — and emits remediation | Security | ✅ |
+| [**right-sizer**](right-sizer/) | CloudWatch utilization → over-provisioned instances; recommends smaller types / Graviton; estimates savings | Cost | ✅ |
 | [**ebs-hygiene**](ebs-hygiene/) | Unattached/unencrypted volumes, snapshot coverage gaps, orphaned/old snapshots | Cost + resilience | ✅ |
-| [**resilience-checker**](resilience-checker/) | Single-AZ ASGs, missing health checks, AZ spread, ALB target health | Reliability (SAA) | ✅ |
+| [**resilience-checker**](resilience-checker/) | Single-AZ ASGs, missing health checks, AZ spread, ALB target health | Reliability | ✅ |
 | [**network-reachability**](network-reachability/) | "What can reach this instance?" — composes SG + NACL + route table + public IP into an exposure verdict | Security + Networking | ✅ (showpiece) |
 | [**tf-plan-guard**](tf-plan-guard/) | Parses `terraform show -json` and fails CI on risky EC2/SG changes *before apply* | IaC + Security | ✅ |
 

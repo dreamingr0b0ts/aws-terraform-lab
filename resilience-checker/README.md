@@ -6,8 +6,8 @@ Read-only reliability analyzer over Auto Scaling Groups and their load-balancer 
 High availability on EC2 means spreading across AZs and letting the load balancer (not just the
 hypervisor) decide what's healthy — this tool flags where that breaks down.
 
-## Cert domain
-Reliability (SAA-C03).
+## Domain
+Reliability
 
 ## Usage
 ```bash
