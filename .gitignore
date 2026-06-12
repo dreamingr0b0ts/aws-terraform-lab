@@ -1,0 +1,90 @@
+# ─── Python ───────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+*.egg-info/
+*.egg
+
+# ─── Test / lint caches ────────────────────────────────────────────────────
+.pytest_cache/
+.cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.tox/
+.nox/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+
+# ─── Virtual environments ──────────────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+
+# ─── Terraform ─────────────────────────────────────────────────────────────
+# Local working dirs and plugins
+**/.terraform/
+**/.terraform.tfstate.lock.info
+# State — NEVER commit (may contain secrets / full resource detail)
+*.tfstate
+*.tfstate.*
+# Crash logs
+crash.log
+crash.*.log
+# Variable files often hold secrets; commit only *.example
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+# Plan output artifacts
+*.tfplan
+plan.json
+tfplan.binary
+# Override files (local-only by convention)
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+# Keep the dependency lock file committed:
+!**/.terraform.lock.hcl
+
+# ─── Secrets & credentials (NEVER commit) ──────────────────────────────────
+.aws/
+credentials
+*.credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+*.secret
+*secrets*.json
+*secrets*.yaml
+*secrets*.yml
+.netrc
+
+# ─── Build artifacts (Lambda zips, etc.) ───────────────────────────────────
+*.zip
+.aws-sam/
+
+# ─── IDE / editor ──────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ─── OS noise ──────────────────────────────────────────────────────────────
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+desktop.ini

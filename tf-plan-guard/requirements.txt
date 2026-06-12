@@ -1,0 +1,1 @@
+# No runtime dependencies — parses `terraform plan -json` using the standard library.

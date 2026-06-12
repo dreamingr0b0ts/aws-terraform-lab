@@ -1,0 +1,31 @@
+# Tooling configuration (ruff + pytest). The EC2 tools are intentionally standalone scripts and
+# are NOT packaged here — see README "Design conventions".
+
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+src = [
+    "sg-auditor",
+    "imds-inspector",
+    "right-sizer",
+    "ebs-hygiene",
+    "resilience-checker",
+    "network-reachability",
+    "tf-plan-guard",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501", "F541"]
+
+[tool.pytest.ini_options]
+python_files = ["test_*.py"]
+testpaths = [
+    "sg-auditor",
+    "imds-inspector",
+    "right-sizer",
+    "ebs-hygiene",
+    "resilience-checker",
+    "network-reachability",
+    "tf-plan-guard",
+]
