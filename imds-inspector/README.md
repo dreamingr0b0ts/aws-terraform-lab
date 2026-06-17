@@ -66,3 +66,8 @@ ec2:DescribeInstances
   launches an instance — pair with `tf-plan-guard` to catch it pre-apply.
 - A high hop limit (`HttpPutResponseHopLimit > 1`) with v2 enabled is a container-escape nuance
   this tool reports in JSON (`hop_limit`) but does not independently flag.
+- Severity is judged purely from each instance's own `MetadataOptions`. It does not account for
+  the **account-level / regional IMDS defaults** (`ec2:GetInstanceMetadataDefaults`) introduced in
+  2024, which can enforce IMDSv2 even when an instance's own setting reads `optional`. On accounts
+  that have set those defaults, a finding here may be a false positive — confirm with
+  `aws ec2 get-instance-metadata-defaults --region <R>` before acting.

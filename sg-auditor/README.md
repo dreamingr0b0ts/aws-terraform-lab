@@ -36,9 +36,13 @@ python sg_auditor.py --format json
 | `WORLD_OPEN_ALL_PORTS` | All ports/protocols (`-1` or `0-65535`) open to the world | **CRITICAL** |
 | `WORLD_OPEN_PORT` | World-open on a non-sensitive, non-web port | **MEDIUM** |
 | `WORLD_OPEN_PORT` | World-open on a web port (80/443) — informational | **LOW** |
+| `REDUNDANT_RULE` | An ingress rule subsumed by a broader rule from the same source (or an exact duplicate) | **LOW** |
 | `UNUSED_SECURITY_GROUP` | SG used by no ENI and referenced by no other SG (the `default` SG is ignored) | **MEDIUM** |
 
 A port *range* that spans a sensitive port (e.g. `20-30` covering SSH) is flagged for that port.
+A world-open rule whose range is exactly web ports (80/443) is `LOW`; a broader range is `MEDIUM`
+(and the detail surfaces any web ports it happens to cover). `WORLD_OPEN_ALL_PORTS` distinguishes
+all-protocols (`-1`) from all-ports-of-one-protocol (e.g. `0-65535` TCP) in its detail text.
 
 ## Severity model + CI gating
 Findings carry `LOW | MEDIUM | HIGH | CRITICAL`. `--fail-on SEVERITY` returns **exit code 3** when

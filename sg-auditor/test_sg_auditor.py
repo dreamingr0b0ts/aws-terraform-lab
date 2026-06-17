@@ -108,6 +108,71 @@ class ClassifyIngressTests(unittest.TestCase):
         self.assertEqual(by_type(findings, "WORLD_OPEN_SENSITIVE_PORT"), [])
 
 
+class AllPortsLabelTests(unittest.TestCase):
+    def test_all_protocols_label(self):
+        groups = [sg("sg-1", "wide", [ingress("-1", cidr="0.0.0.0/0")])]
+        f = by_type(SecurityGroupAuditor.audit(groups, [eni(["sg-1"])]), "WORLD_OPEN_ALL_PORTS")[0]
+        self.assertIn("protocol", f["detail"].lower())
+
+    def test_all_tcp_ports_label(self):
+        groups = [sg("sg-1", "wide", [ingress("tcp", 0, 65535, "0.0.0.0/0")])]
+        f = by_type(SecurityGroupAuditor.audit(groups, [eni(["sg-1"])]), "WORLD_OPEN_ALL_PORTS")[0]
+        self.assertIn("TCP", f["detail"])
+        self.assertNotIn("protocol", f["detail"].lower())
+
+
+class WebRangeTests(unittest.TestCase):
+    def test_single_web_port_low(self):
+        groups = [sg("sg-1", "web", [ingress("tcp", 80, 80, "0.0.0.0/0")])]
+        f = by_type(SecurityGroupAuditor.audit(groups, [eni(["sg-1"])]), "WORLD_OPEN_PORT")[0]
+        self.assertEqual(f["severity"], "LOW")
+
+    def test_broad_range_covering_web_is_medium_and_notes_web(self):
+        # 80-443 is broad (360+ ports) → MEDIUM, but detail surfaces the web ports.
+        groups = [sg("sg-1", "broad", [ingress("tcp", 80, 443, "0.0.0.0/0")])]
+        f = by_type(SecurityGroupAuditor.audit(groups, [eni(["sg-1"])]), "WORLD_OPEN_PORT")[0]
+        self.assertEqual(f["severity"], "MEDIUM")
+        self.assertIn("80", f["detail"])
+        self.assertIn("443", f["detail"])
+
+
+class RedundantRuleTests(unittest.TestCase):
+    def test_specific_port_redundant_under_all_traffic(self):
+        # tcp/443 from the world is redundant when -1 (all) from the world exists.
+        perms = [ingress("-1", cidr="0.0.0.0/0"), ingress("tcp", 443, 443, "0.0.0.0/0")]
+        findings = SecurityGroupAuditor.audit([sg("sg-1", "x", perms)], [eni(["sg-1"])])
+        self.assertEqual(len(by_type(findings, "REDUNDANT_RULE")), 1)
+
+    def test_narrow_range_redundant_under_wider_range(self):
+        # tcp/8080 is contained in tcp/8000-9000 from the same source.
+        perms = [ingress("tcp", 8000, 9000, "0.0.0.0/0"), ingress("tcp", 8080, 8080, "0.0.0.0/0")]
+        findings = SecurityGroupAuditor.audit([sg("sg-1", "x", perms)], [eni(["sg-1"])])
+        red = by_type(findings, "REDUNDANT_RULE")
+        self.assertEqual(len(red), 1)
+        self.assertEqual(red[0]["severity"], "LOW")
+
+    def test_exact_duplicate_flags_one(self):
+        perms = [ingress("tcp", 22, 22, "10.0.0.0/8"), ingress("tcp", 22, 22, "10.0.0.0/8")]
+        findings = SecurityGroupAuditor.audit([sg("sg-1", "x", perms)], [eni(["sg-1"])])
+        self.assertEqual(len(by_type(findings, "REDUNDANT_RULE")), 1)
+
+    def test_different_sources_not_redundant(self):
+        perms = [ingress("tcp", 443, 443, "10.0.0.0/8"), ingress("tcp", 443, 443, "192.168.0.0/16")]
+        findings = SecurityGroupAuditor.audit([sg("sg-1", "x", perms)], [eni(["sg-1"])])
+        self.assertEqual(by_type(findings, "REDUNDANT_RULE"), [])
+
+    def test_disjoint_ports_not_redundant(self):
+        perms = [ingress("tcp", 80, 80, "10.0.0.0/8"), ingress("tcp", 443, 443, "10.0.0.0/8")]
+        findings = SecurityGroupAuditor.audit([sg("sg-1", "x", perms)], [eni(["sg-1"])])
+        self.assertEqual(by_type(findings, "REDUNDANT_RULE"), [])
+
+    def test_referenced_sg_source_redundancy(self):
+        # Two ingress rules referencing the same SG, one subsumed by the other.
+        perms = [ingress("-1", group_id="sg-9"), ingress("tcp", 22, 22, group_id="sg-9")]
+        findings = SecurityGroupAuditor.audit([sg("sg-1", "x", perms)], [eni(["sg-1"])])
+        self.assertEqual(len(by_type(findings, "REDUNDANT_RULE")), 1)
+
+
 class UnusedGroupTests(unittest.TestCase):
     def test_unattached_unreferenced_group_flagged(self):
         groups = [sg("sg-orphan", "orphan")]

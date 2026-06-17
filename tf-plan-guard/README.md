@@ -36,7 +36,7 @@ Drop-in CI step:
 | `SG_WORLD_OPEN_ALL_PORTS` | SG rule opens all ports/protocols to the world | **CRITICAL** |
 | `SG_WORLD_OPEN_PORT` | SG rule opens a non-sensitive port to the world (web 80/443 → LOW) | **MEDIUM** / **LOW** |
 | `IMDSV1_ALLOWED` | `aws_instance` / `aws_launch_template` with `http_tokens != "required"` | **HIGH** |
-| `EBS_UNENCRYPTED` | `aws_ebs_volume` / root / block-device with `encrypted = false` | **HIGH** |
+| `EBS_UNENCRYPTED` | `aws_ebs_volume` (with `encrypted = false` **or omitted**) / root / block-device with `encrypted = false` | **HIGH** |
 | `PUBLIC_IP_ASSIGNED` | `associate_public_ip_address = true` | **LOW** |
 
 Covers both the modern `aws_vpc_security_group_ingress_rule` and the inline-block /

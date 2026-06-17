@@ -124,12 +124,17 @@ class SecurityGroupAuditor:
             is_all, sensitive = cls._ports_in_rule(perm)
 
             if is_all:
+                proto = str(perm.get("IpProtocol", "-1"))
+                if proto == "-1":
+                    detail = "All ports and protocols open to 0.0.0.0/0 (or ::/0)"
+                else:
+                    detail = f"All {proto.upper()} ports open to 0.0.0.0/0 (or ::/0)"
                 findings.append({
                     "severity": "CRITICAL",
                     "type": "WORLD_OPEN_ALL_PORTS",
                     "group_id": sg_id,
                     "group_name": sg_name,
-                    "detail": "All ports/protocols open to 0.0.0.0/0 (or ::/0)",
+                    "detail": detail,
                 })
                 continue
 
@@ -145,18 +150,123 @@ class SecurityGroupAuditor:
                         "detail": f"{label} (port {port}) open to the world",
                     })
             else:
-                # World-open on a non-sensitive port. Web ports are informational;
-                # anything else is a medium over-broad rule.
+                # World-open on non-sensitive port(s). A rule whose entire range
+                # consists of web ports (80/443) is informational (LOW); anything
+                # broader is a MEDIUM over-broad rule (but still surface any web
+                # ports it happens to cover).
                 fp, tp = perm.get("FromPort"), perm.get("ToPort")
-                only_web = fp == tp and fp in WEB_PORTS
+                covered_web = sorted(p for p in WEB_PORTS if fp <= p <= tp)
+                spans_only_web = bool(covered_web) and (tp - fp + 1) == len(covered_web)
+                if spans_only_web:
+                    severity = "LOW"
+                    detail = f"Web port(s) {', '.join(map(str, covered_web))} open to the world"
+                elif covered_web:
+                    severity = "MEDIUM"
+                    detail = (f"Port range {fp}-{tp} open to the world "
+                              f"(includes web port(s) {', '.join(map(str, covered_web))})")
+                else:
+                    severity = "MEDIUM"
+                    detail = f"Port range {fp}-{tp} open to the world"
                 findings.append({
-                    "severity": "LOW" if only_web else "MEDIUM",
+                    "severity": severity,
                     "type": "WORLD_OPEN_PORT",
                     "group_id": sg_id,
                     "group_name": sg_name,
                     "port": fp,
-                    "detail": f"Port range {fp}-{tp} open to the world",
+                    "detail": detail,
                 })
+        return findings
+
+    # ── Redundant-rule detection (pure) ──────────────────────────────────────
+    @staticmethod
+    def _normalize_ports(perm: dict):
+        """Normalize a permission to (proto, from_port, to_port) coverage.
+
+        '-1' (all protocols) and tcp/udp rules missing port bounds both expand
+        to the full 0–65535 range so containment checks are uniform.
+        """
+        proto = str(perm.get("IpProtocol", "-1"))
+        if proto == "-1":
+            return "-1", 0, 65535
+        fp, tp = perm.get("FromPort"), perm.get("ToPort")
+        if fp is None or tp is None:
+            return proto, 0, 65535
+        return proto, fp, tp
+
+    @staticmethod
+    def _rule_sources(perm: dict) -> list:
+        """All distinct sources a permission grants from (CIDR / SG / prefix list)."""
+        sources = []
+        for r in perm.get("IpRanges", []):
+            if r.get("CidrIp"):
+                sources.append(("cidr", r["CidrIp"]))
+        for r in perm.get("Ipv6Ranges", []):
+            if r.get("CidrIpv6"):
+                sources.append(("cidr", r["CidrIpv6"]))
+        for p in perm.get("UserIdGroupPairs", []):
+            if p.get("GroupId"):
+                sources.append(("sg", p["GroupId"]))
+        for pl in perm.get("PrefixListIds", []):
+            if pl.get("PrefixListId"):
+                sources.append(("prefix-list", pl["PrefixListId"]))
+        return sources
+
+    @staticmethod
+    def _port_label(proto: str, fp: int, tp: int) -> str:
+        if proto == "-1":
+            return "all traffic"
+        if fp == 0 and tp == 65535:
+            return f"all {proto} ports"
+        if fp == tp:
+            return f"{proto}/{fp}"
+        return f"{proto}/{fp}-{tp}"
+
+    @classmethod
+    def _classify_redundant(cls, sg: dict) -> list:
+        """Flag ingress rules subsumed by a broader rule from the same source.
+
+        A narrower rule is redundant when another rule from the *same* source
+        covers it: a broader protocol ('-1' covers a specific proto) and/or a
+        port range that contains it. Exact duplicates flag the later occurrence.
+        """
+        sg_id = sg.get("GroupId", "")
+        sg_name = sg.get("GroupName", "")
+
+        # Expand permissions into per-source atoms: (source, proto, from, to).
+        atoms = []
+        for perm in sg.get("IpPermissions", []):
+            proto, fp, tp = cls._normalize_ports(perm)
+            for src in cls._rule_sources(perm):
+                atoms.append((src, proto, fp, tp))
+
+        findings = []
+        flagged = set()
+        for i, (si, pi, fi, ti) in enumerate(atoms):
+            if i in flagged:
+                continue
+            for j, (sj, pj, fj, tj) in enumerate(atoms):
+                if j == i or si != sj:
+                    continue
+                proto_covers = pj == "-1" or pj == pi
+                range_covers = fj <= fi and ti <= tj
+                if not (proto_covers and range_covers):
+                    continue
+                strictly_broader = (pj == "-1" and pi != "-1") or fj < fi or tj > ti
+                # Strict superset always wins; for exact duplicates keep the
+                # first occurrence and flag this (later) one.
+                if strictly_broader or j < i:
+                    findings.append({
+                        "severity": "LOW",
+                        "type": "REDUNDANT_RULE",
+                        "group_id": sg_id,
+                        "group_name": sg_name,
+                        "detail": (
+                            f"Ingress {cls._port_label(pi, fi, ti)} from {si[1]} is redundant — "
+                            f"already covered by {cls._port_label(pj, fj, tj)} from the same source"
+                        ),
+                    })
+                    flagged.add(i)
+                    break
         return findings
 
     @staticmethod
@@ -188,6 +298,10 @@ class SecurityGroupAuditor:
         # Risky world-open ingress rules.
         for sg in security_groups:
             findings.extend(cls._classify_ingress(sg))
+
+        # Redundant ingress rules (one rule subsumed by a broader one).
+        for sg in security_groups:
+            findings.extend(cls._classify_redundant(sg))
 
         # Unused / unattached security groups.
         used = cls._used_group_ids(network_interfaces)

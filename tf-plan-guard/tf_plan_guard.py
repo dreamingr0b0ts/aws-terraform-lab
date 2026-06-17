@@ -69,8 +69,11 @@ class PlanGuard:
         if fp == 0 and tp == 65535:
             return True, []
         out = [(p, *SENSITIVE_PORTS[p]) for p in SENSITIVE_PORTS if fp <= p <= tp]
-        # Track non-sensitive web/other exposure too.
-        return False, out + [(fp, "web", "LOW") for _ in [0] if fp == tp and fp in WEB_PORTS]
+        # Track non-sensitive web exposure too: a single web port (80/443) open
+        # to the world is informational (LOW), not a sensitive-port finding.
+        if fp == tp and fp in WEB_PORTS:
+            out.append((fp, "web", "LOW"))
+        return False, out
 
     @classmethod
     def _world_rule_findings(cls, address, from_port, to_port, protocol, cidrs):
@@ -175,8 +178,16 @@ class PlanGuard:
 
     @classmethod
     def _check_ebs_volume(cls, address, after):
-        return cls._unencrypted_block_findings(
-            address, [after] if "encrypted" in after else [], "EBS volume")
+        # A standalone aws_ebs_volume defaults to UNENCRYPTED when `encrypted` is
+        # omitted, so treat a missing key the same as an explicit false. (Inline
+        # instance/launch-template blocks keep the stricter explicit-false check,
+        # where plan JSON reliably materializes the attribute.)
+        if after.get("encrypted") is False or "encrypted" not in after:
+            return [{
+                "severity": "HIGH", "type": "EBS_UNENCRYPTED", "address": address,
+                "detail": "Plan creates an unencrypted EBS volume",
+            }]
+        return []
 
     _DISPATCH = {
         "aws_vpc_security_group_ingress_rule": "_check_sg_modern_rule",
@@ -209,7 +220,11 @@ class PlanGuard:
 
 
 def _load_plan(path):
-    raw = sys.stdin.read() if path in (None, "-") else open(path, encoding="utf-8").read()
+    if path in (None, "-"):
+        raw = sys.stdin.read()
+    else:
+        with open(path, encoding="utf-8") as fh:
+            raw = fh.read()
     return json.loads(raw)
 
 

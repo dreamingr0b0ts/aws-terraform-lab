@@ -117,6 +117,13 @@ class LaunchTemplateAndVolumeTests(unittest.TestCase):
         c = change("aws_ebs_volume", {"encrypted": True, "size": 20})
         self.assertEqual(PlanGuard.analyze(plan(c)), [])
 
+    def test_ebs_volume_missing_encrypted_key_flagged(self):
+        # aws_ebs_volume defaults to unencrypted when `encrypted` is omitted.
+        c = change("aws_ebs_volume", {"size": 20})
+        findings = PlanGuard.analyze(plan(c))
+        self.assertEqual(findings[0]["type"], "EBS_UNENCRYPTED")
+        self.assertEqual(findings[0]["severity"], "HIGH")
+
 
 class ActionFilterTests(unittest.TestCase):
     def test_delete_action_ignored(self):

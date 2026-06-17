@@ -11,7 +11,7 @@ tooling that keeps it secure, resilient, and cost-efficient.
 > (network + compute + alb modules, with the intentional findings seeded and clearly labeled). All
 > seven analyzers — **sg-auditor**, **imds-inspector**, **right-sizer**, **network-reachability**,
 > **tf-plan-guard**, **ebs-hygiene**, and **resilience-checker** — are implemented with fake-boto3
-> unit tests (113 passing) and filled-out READMEs. `make check` is green (ruff + compile + pytest +
+> unit tests (126 passing) and filled-out READMEs. `make check` is green (ruff + compile + pytest +
 > terraform validate).
 
 ---

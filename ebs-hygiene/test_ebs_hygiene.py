@@ -138,5 +138,45 @@ class FetchTests(unittest.TestCase):
         self.assertEqual(len(h.fetch_snapshots("111122223333")), 1)
 
 
+class FakeSts:
+    def __init__(self, account_id):
+        self._account_id = account_id
+
+    def get_caller_identity(self):
+        return {"Account": self._account_id}
+
+
+class FakeSession:
+    """Minimal session double recording which clients were requested."""
+
+    def __init__(self, account_id="999988887777"):
+        self._account_id = account_id
+        self.clients_requested = []
+
+    def client(self, name, **kwargs):
+        self.clients_requested.append(name)
+        if name == "sts":
+            return FakeSts(self._account_id)
+        return FakeEc2([], [])
+
+
+class SessionScopingTests(unittest.TestCase):
+    def test_account_id_uses_injected_session(self):
+        # account_id must resolve via the SAME session (honoring --profile/--region),
+        # not a fresh default boto3.Session().
+        sess = FakeSession(account_id="123456789012")
+        hygiene = EBSHygiene(session=sess)
+        self.assertEqual(hygiene.account_id(), "123456789012")
+        self.assertIn("sts", sess.clients_requested)
+
+    def test_account_id_cached(self):
+        sess = FakeSession(account_id="123456789012")
+        hygiene = EBSHygiene(session=sess)
+        hygiene.account_id()
+        hygiene.account_id()
+        # sts client created once; ec2 was created in __init__.
+        self.assertEqual(sess.clients_requested.count("sts"), 1)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

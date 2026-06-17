@@ -46,8 +46,8 @@ class EBSHygiene:
     """
 
     def __init__(self, session=None):
-        sess = session or boto3.Session()
-        self.ec2 = sess.client("ec2", config=RETRY_CONFIG)
+        self._session = session or boto3.Session()
+        self.ec2 = self._session.client("ec2", config=RETRY_CONFIG)
         self._account_id = None
 
     # ── Fetching (paginated) ────────────────────────────────────────────────
@@ -65,8 +65,9 @@ class EBSHygiene:
 
     def account_id(self) -> str:
         # sts:GetCallerIdentity scopes snapshot listing to self-owned snapshots.
+        # Use the same session as the EC2 client so --profile/--region are honored.
         if self._account_id is None:
-            sts = boto3.Session().client("sts", config=RETRY_CONFIG)
+            sts = self._session.client("sts", config=RETRY_CONFIG)
             self._account_id = sts.get_caller_identity()["Account"]
         return self._account_id
 
